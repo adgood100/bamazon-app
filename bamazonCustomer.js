@@ -1,5 +1,6 @@
 var mysql = require("mysql");
 var inquirer = require("inquirer");
+var Table = require("cli-table");
 
 // create the connection information for the sql database
 var connection = mysql.createConnection({
@@ -23,6 +24,12 @@ connection.connect(function(err) {
 
 var shoppingCartArray = [];
 var shoppingCartSQLArray = [];
+// instantiate 
+var table = new Table({
+    head: ['ID', 'Product Name', 'Price', 'Units', 'Line Item Price']
+  , colWidths: [5, 75, 10, 8, 10]
+});
+ 
 
 // function which prompts the user for what action they should take
 function start() {
@@ -191,16 +198,18 @@ function printReceiptView () {
         throw errprint;
     }
 //  console.log(result);
+    console.log(" ");
     console.log("Product Order");
   result.map(function(result) {
     orderTotal += result.cart_extended_item_total;
-    console.log("");
-    console.log("ID: " + result.cart_item_id +
-                " Name: " + result.cart_product_name +
-                " Price: " + result.cart_price +
-                " Units: " + result.cart_units +
-                " Line Item Total: " + result.cart_extended_item_total);
-    console.log("*****");
+  
+// table is an Array, so you can `push`, `unshift`, `splice` and friends 
+    table.push(
+        [result.cart_item_id, result.cart_product_name, result.cart_price, result.cart_units, result.cart_extended_item_total]
+    );
+     
+    console.log(table.toString());
+
   })
   console.log(" ");
   console.log("Order Total: " + orderTotal);
@@ -213,7 +222,7 @@ function printReceiptView () {
 function printCartView () {
   console.log("entering printCartView");
   var sqlprintcart = 'SELECT * FROM cart';  
-  console.log(sqlprintcart);
+//  console.log(sqlprintcart);
   var query = connection.query(sqlprintcart, function(errprintcart, result){
     if (errprintcart) {
         console.log("error accured with print");
@@ -222,13 +231,13 @@ function printCartView () {
     }
 //    console.log(result);
   result.map(function(result) {
-    console.log("");
-    console.log("Product ID: " + result.cart_item_id);
-    console.log("Product Name: " + result.cart_product_name);
-    console.log("Product Price: " + result.cart_price);
-    console.log("Number of Units: " + result.cart_units);
-    console.log("Line Item Total: " + result.cart_extended_item_total);
-    console.log("*****");
+// table is an Array, so you can `push`, `unshift`, `splice` and friends 
+    table.push(
+        [result.cart_item_id, result.cart_product_name, result.cart_price, result.cart_units, result.cart_extended_item_total]
+    );
+     
+    console.log(table.toString());
+
   })
   inquirer
     .prompt({
@@ -245,10 +254,11 @@ function printCartView () {
           console.log("Thank you for shopping with Bamazon!");
           start();
       } else {
-        return;
+        start();
       }
     })
 })
+  start();
 }
 
 function initializeCart () {
