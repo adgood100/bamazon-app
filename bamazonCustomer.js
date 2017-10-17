@@ -22,6 +22,7 @@ connection.connect(function(err) {
 });
 
 var shoppingCartArray = [];
+var shoppingCartSQLArray = [];
 
 // function which prompts the user for what action they should take
 function start() {
@@ -29,72 +30,36 @@ function start() {
     .prompt({
       name: "shopOrInv",
       type: "rawlist",
-      message: "Would you like to [SHOP] or manage [INVENTORY]?",
-      choices: ["Shop", "Inventory"]
+      message: "Would you like to [SHOP] or [VIEW CART] or [CHECKOUT]?",
+      choices: ["Shop", "View Cart", "Checkout"]
     })
     .then(function(answer) {
       // based on their answer, either call the bid or the post functions
       if (answer.shopOrInv.toUpperCase() === "SHOP") {
         var shoppingCartArray = [];
+        var shoppingCartSQLArray = [];
+        initializeCart();
         shopView();
       }
-      else {
-        inventoryView();
+      if (answer.shopOrInv.toUpperCase() === "VIEW CART") {
+
+        printCartView();
+      }
+      if (answer.shopOrInv.toUpperCase() === "CHECKOUT") {
+
+        checkoutView();
       }
     });
 }
 
-// function to handle posting new items up for auction
-function inentoryView() {
-  // prompt for info about the items available for purchase
-  inquirer
-    .prompt([
-      {
-        name: "item",
-        type: "input",
-        message: "What item you would like to purchase?"
-      },
-      {
-        name: "category",
-        type: "input",
-        message: "What category would you like to place your auction in?"
-      },
-      {
-        name: "startingBid",
-        type: "input",
-        message: "What would you like your starting bid to be?",
-        validate: function(value) {
-          if (isNaN(value) === false) {
-            return true;
-          }
-          return false;
-        }
-      }
-    ])
-    .then(function(answer) {
-      // when finished prompting, insert a new item into the db with that info
-      connection.query(
-        "INSERT INTO auctions SET ?",
-        {
-          item_name: answer.item,
-          category: answer.category,
-          starting_bid: answer.startingBid,
-          highest_bid: answer.startingBid
-        },
-        function(err) {
-          if (err) throw err;
-          console.log("Your auction was created successfully!");
-          // re-prompt the user for if they want to bid or post
-          start();
-        }
-      );
-    });
-}
+// function to handle shopping for new items 
+
 
 function shopView() {
   // query the database for all products for sale
   connection.query("SELECT * FROM products", function(err, results) {
-    if (err) throw err;
+    if (err) throw err; 
+
     // once you have the products, prompt the user for products they'd like to purchase
     inquirer
       .prompt([
@@ -108,7 +73,7 @@ function shopView() {
               choiceArray.push(results[i].product_name);
             }
             return choiceArray;
-          },
+        },
           message: "Please select a product id for the product you would like to purchase."
         },
         {
@@ -122,50 +87,54 @@ function shopView() {
         var chosenItem;
         var chosenID;
         var stock_quantity_update;
+        var item_extend_total;
         for (var i = 0; i < results.length; i++) {
-          if (results[i].product_name === answer.choice) {
-            chosenItem = results[i];
-          }
+          if (results[i].product_name === answer.choice) {chosenItem = results[i];}
         }
 
         // determine if product purchase quantity can be fulfilled by inventory on hand
         if (chosenItem.stock_quantity > parseInt(answer.units)) {
           chosenID = chosenItem.item_id;
+          stock_quantity_update = (chosenItem.stock_quantity - parseInt(answer.units));
+          item_extend_total = (parseInt(answer.units) * chosenItem.price);
           console.log("You chose product ID: " + chosenID);
           console.log("Current stock onhand: " + chosenItem.stock_quantity);
           console.log("Adding units to cart: " + answer.units);
-          stock_quantity_update = (chosenItem.stock_quantity - parseInt(answer.units));
           console.log("Updated stock onhand: " + stock_quantity_update);
           // inventory onhand is sufficient, so update db, let the user know, and start over
           var sql = 'update products set stock_quantity = ' + stock_quantity_update + 
             ' where item_id = ' + chosenID;
-          var query = connection.query(sql, function(err, result){
-            if (err) {
+          shoppingCartSQLArray.push(sql);
+          var sqlinsert = 'INSERT INTO cart (cart_item_id, cart_product_name, cart_price, cart_units, cart_extended_item_total)';  
+          sqlinsert += " VALUE (" + chosenID + ', "' + chosenItem.product_name + '", ' + chosenItem.price + ', ' + answer.units + ', ' + item_extend_total + ")";
+          console.log(sqlinsert);
+          var query = connection.query(sqlinsert, function(errinsert, result){
+            if (errinsert) {
                 console.log("error accured with update");
-                console.log(err);
-                throw err;
-              }
+                console.log(errinsert);
+                throw errinsert;
+            }
 //            console.log(result);
             console.log("Item placed in shopping cart successfully!");
             continueShopping();
-            }
-          );
-        }
-        else {
+            });
+        } else {
+      
           // inventory insufficient to fulfill order, so apologize and start over
           console.log("Your product order cannot be fulfilled by inventory onhand. Try again...");
           continueShopping();
         }
-      });
-  });
+      })
+})
 }
+
 
 function continueShopping() {
   inquirer
     .prompt({
       name: "continueShop",
       type: "rawlist",
-      message: "Continue shopping?",
+      message: "Yes to Continue shopping, No to Checkout.",
       choices: ["Yes", "No"]
     })
     .then(function(answer) {
@@ -175,11 +144,105 @@ function continueShopping() {
       }
       else {
         checkoutView();
+        printReceiptView();
+        start();
       }
     });
 }
 
 function checkoutView () {
   console.log("entering checkoutView");
-  start();
+
+  for (var i = 0; i < shoppingCartSQLArray.length; i++) {
+    console.log("entering for checkout for loop");
+    console.log(shoppingCartSQLArray[i]);
+    var query = connection.query(shoppingCartSQLArray[i], function(errupdate, result){
+      if (errupdate) {
+          console.log("error accured with update");
+          console.log(errupdate);
+          throw errupdate;
+        }
+//            console.log(result);
+    })
+  }
+
+  console.log("Order placed successfully!");
+}
+
+function printReceiptView () {
+  console.log("entering printReceiptView");
+  var sqlprint = 'SELECT * FROM cart';  
+  console.log(sqlprint);
+  var query = connection.query(sqlprint, function(errprint, result){
+    if (errprint) {
+        console.log("error accured with print");
+        console.log(errprint);
+        throw errprint;
+    }
+//  console.log(result);
+  result.map(function(result) {
+    console.log("");
+    console.log("Product ID: " + result.cart_item_id);
+    console.log("Product Name: " + result.cart_product_name);
+    console.log("Product Price: " + result.cart_price);
+    console.log("Number of Units: " + result.cart_units);
+    console.log("Line Item Total: " + result.cart_extended_item_total);
+    console.log("*****");
+  })
+  console.log("Thank you for shopping with Bamazon!");
+})
+}
+
+function printCartView () {
+  console.log("entering printCartView");
+  var sqlprintcart = 'SELECT * FROM cart';  
+  console.log(sqlprintcart);
+  var query = connection.query(sqlprintcart, function(errprintcart, result){
+    if (errprintcart) {
+        console.log("error accured with print");
+        console.log(errprintcart);
+        throw errprintcart;
+    }
+//    console.log(result);
+  result.map(function(result) {
+    console.log("");
+    console.log("Product ID: " + result.cart_item_id);
+    console.log("Product Name: " + result.cart_product_name);
+    console.log("Product Price: " + result.cart_price);
+    console.log("Number of Units: " + result.cart_units);
+    console.log("Line Item Total: " + result.cart_extended_item_total);
+    console.log("*****");
+  })
+  inquirer
+    .prompt({
+      name: "printReceipt",
+      type: "rawlist",
+      message: "Would you like to checkout and print your receipt?",
+      choices: ["Yes", "No"]
+    })
+    .then(function(answer) {
+      // based on their answer, print receipt and clear cart or clear cart and return to start
+      if (answer.printReceipt.toUpperCase() === "YES") {
+          printReceiptView();
+          checkoutView();
+          console.log("Thank you for shopping with Bamazon!");
+      } else {
+        return;
+      }
+    })
+})
+}
+
+function initializeCart () {
+  var sqlinit = 'TRUNCATE TABLE cart';  
+  console.log(sqlinit);
+  var query = connection.query(sqlinit, function(errinit, result) {
+    if (errinit) {
+        console.log("error accured with table truncate");
+        console.log(errinit);
+        throw errinit;
+    }
+//  console.log(result);
+//  console.log("******************************!");
+  })
 }

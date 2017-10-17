@@ -14,6 +14,15 @@ CREATE TABLE products(
   PRIMARY KEY (item_id)
 );
 
+CREATE TABLE cart(
+  cart_item_id INT NOT NULL,
+  cart_product_name VARCHAR(250) NOT NULL,
+  cart_price DECIMAL(6,2) default 0,
+  cart_units INT default 0,
+  cart_extended_item_total DECIMAL(8,2) default 0,
+  PRIMARY KEY (cart_item_id)
+);
+
 insert into products (product_name, department_name, price, stock_quantity) 
 value ("The Whole Art of Detection: Lost Mysteries of Sherlock Holmes", "Books & Audible", 17.99, 99);
 insert into products (product_name, department_name, price, stock_quantity) 
