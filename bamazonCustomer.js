@@ -107,7 +107,7 @@ function shopView() {
           shoppingCartSQLArray.push(sql);
           var sqlinsert = 'INSERT INTO cart (cart_item_id, cart_product_name, cart_price, cart_units, cart_extended_item_total)';  
           sqlinsert += " VALUE (" + chosenID + ', "' + chosenItem.product_name + '", ' + chosenItem.price + ', ' + answer.units + ', ' + item_extend_total + ")";
-          console.log(sqlinsert);
+//          console.log(sqlinsert);
           var query = connection.query(sqlinsert, function(errinsert, result){
             if (errinsert) {
                 console.log("error accured with update");
@@ -115,13 +115,17 @@ function shopView() {
                 throw errinsert;
             }
 //            console.log(result);
+            console.log(" ");
             console.log("Item placed in shopping cart successfully!");
+            console.log(" ");
             continueShopping();
             });
         } else {
       
           // inventory insufficient to fulfill order, so apologize and start over
+          console.log(" ");
           console.log("Your product order cannot be fulfilled by inventory onhand. Try again...");
+          console.log(" ");
           continueShopping();
         }
       })
@@ -134,17 +138,20 @@ function continueShopping() {
     .prompt({
       name: "continueShop",
       type: "rawlist",
-      message: "Yes to Continue shopping, No to Checkout.",
-      choices: ["Yes", "No"]
+      message: "Yes to Continue shopping, No to Checkout, Exit to Exit without Buying.",
+      choices: ["Yes", "No", "Exit"]
     })
     .then(function(answer) {
       // based on their answer, either call the bid or the post functions
       if (answer.continueShop.toUpperCase() === "YES") {
         shopView();
       }
-      else {
+      if (answer.continueShop.toUpperCase() === "NO") {
         checkoutView();
-        printReceiptView();
+//        printReceiptView();
+        start();
+      }
+      if (answer.continueShop.toUpperCase() === "EXIT") {
         start();
       }
     });
@@ -154,8 +161,8 @@ function checkoutView () {
   console.log("entering checkoutView");
 
   for (var i = 0; i < shoppingCartSQLArray.length; i++) {
-    console.log("entering for checkout for loop");
-    console.log(shoppingCartSQLArray[i]);
+//    console.log("entering for checkout for loop");
+//    console.log(shoppingCartSQLArray[i]);
     var query = connection.query(shoppingCartSQLArray[i], function(errupdate, result){
       if (errupdate) {
           console.log("error accured with update");
@@ -166,13 +173,17 @@ function checkoutView () {
     })
   }
 
+  console.log(" ");
   console.log("Order placed successfully!");
+  console.log(" ");
+  printReceiptView();
 }
 
 function printReceiptView () {
   console.log("entering printReceiptView");
+  var orderTotal = 0;
   var sqlprint = 'SELECT * FROM cart';  
-  console.log(sqlprint);
+//  console.log(sqlprint);
   var query = connection.query(sqlprint, function(errprint, result){
     if (errprint) {
         console.log("error accured with print");
@@ -180,16 +191,22 @@ function printReceiptView () {
         throw errprint;
     }
 //  console.log(result);
+    console.log("Product Order");
   result.map(function(result) {
+    orderTotal += result.cart_extended_item_total;
     console.log("");
-    console.log("Product ID: " + result.cart_item_id);
-    console.log("Product Name: " + result.cart_product_name);
-    console.log("Product Price: " + result.cart_price);
-    console.log("Number of Units: " + result.cart_units);
-    console.log("Line Item Total: " + result.cart_extended_item_total);
+    console.log("ID: " + result.cart_item_id +
+                " Name: " + result.cart_product_name +
+                " Price: " + result.cart_price +
+                " Units: " + result.cart_units +
+                " Line Item Total: " + result.cart_extended_item_total);
     console.log("*****");
   })
+  console.log(" ");
+  console.log("Order Total: " + orderTotal);
+  console.log(" ");
   console.log("Thank you for shopping with Bamazon!");
+  console.log(" ");
 })
 }
 
@@ -223,9 +240,10 @@ function printCartView () {
     .then(function(answer) {
       // based on their answer, print receipt and clear cart or clear cart and return to start
       if (answer.printReceipt.toUpperCase() === "YES") {
-          printReceiptView();
           checkoutView();
+//          printReceiptView();
           console.log("Thank you for shopping with Bamazon!");
+          start();
       } else {
         return;
       }
@@ -235,7 +253,7 @@ function printCartView () {
 
 function initializeCart () {
   var sqlinit = 'TRUNCATE TABLE cart';  
-  console.log(sqlinit);
+//  console.log(sqlinit);
   var query = connection.query(sqlinit, function(errinit, result) {
     if (errinit) {
         console.log("error accured with table truncate");
